@@ -1,0 +1,6 @@
+{
+    "terminal.integrated.env.osx": {
+        "PATH": "/Users/devarts/.platformio/penv/bin:/Users/devarts/.platformio/penv:/usr/local/opt/libxml2/bin:/Users/devarts/flutter/bin:/usr/local/opt/curl/bin:/usr/local/opt/sqlite/bin:/usr/local/opt/mysql@5.7/bin:/Users/devarts/.composer/vendor/bin:/Users/devarts/Library/Android/sdk/platform-tools:/Users/devarts/Library/Android/sdk/tools:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin",
+        "PLATFORMIO_CALLER": "vscode"
+    }
+}

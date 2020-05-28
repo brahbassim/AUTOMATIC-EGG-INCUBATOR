@@ -1,0 +1,90 @@
+{
+    "configurations": [
+        {
+            "name": "!!! WARNING !!! AUTO-GENERATED FILE, PLEASE DO NOT MODIFY IT AND USE https://docs.platformio.org/page/projectconf/section_env_build.html#build-flags"
+        },
+        {
+            "name": "Mac",
+            "macFrameworkPath": [],
+            "includePath": [
+                "/Users/devarts/.platformio/lib/DHTlib_ID1336",
+                "/Users/devarts/.platformio/lib/DallasTemperature_ID54",
+                "/Users/devarts/.platformio/lib/OneWire_ID1",
+                "/Users/devarts/.platformio/lib/LiquidCrystal_I2C_ID576",
+                "/Users/devarts/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                "/Users/devarts/.platformio/lib/AutoPID",
+                "/Users/devarts/.platformio/lib/Bifrost library for HC-SR04_ID2019/src",
+                "/Users/devarts/.platformio/lib/EEPROMEx_ID170",
+                "/Users/devarts/.platformio/lib/FastLED_ID126",
+                "/Users/devarts/.platformio/lib/MFRC522_ID63/src",
+                "/Users/devarts/.platformio/lib/NewPing_ID176/src",
+                "/Users/devarts/.platformio/lib/PID_ID2",
+                "/Users/devarts/.platformio/lib/RF24Network",
+                "/Users/devarts/.platformio/lib/RF24_ID433",
+                "/Users/devarts/.platformio/lib/RF24_ID433/utility",
+                "/Users/devarts/.platformio/lib/Servo_ID883/src",
+                "/Users/devarts/.platformio/lib/ShiftRegister74HC595_ID4224/src",
+                "/Users/devarts/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                "/Users/devarts/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                "/Users/devarts/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                "/Users/devarts/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                "/Users/devarts/Iot/THERMO-HYGRO/include",
+                "/Users/devarts/Iot/THERMO-HYGRO/src",
+                "/Users/devarts/.platformio/packages/framework-arduino-avr/cores/arduino",
+                "/Users/devarts/.platformio/packages/framework-arduino-avr/variants/standard",
+                "/Users/devarts/.platformio/packages/tool-unity",
+                ""
+            ],
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true,
+                "path": [
+                    "/Users/devarts/.platformio/lib/DHTlib_ID1336",
+                    "/Users/devarts/.platformio/lib/DallasTemperature_ID54",
+                    "/Users/devarts/.platformio/lib/OneWire_ID1",
+                    "/Users/devarts/.platformio/lib/LiquidCrystal_I2C_ID576",
+                    "/Users/devarts/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                    "/Users/devarts/.platformio/lib/AutoPID",
+                    "/Users/devarts/.platformio/lib/Bifrost library for HC-SR04_ID2019/src",
+                    "/Users/devarts/.platformio/lib/EEPROMEx_ID170",
+                    "/Users/devarts/.platformio/lib/FastLED_ID126",
+                    "/Users/devarts/.platformio/lib/MFRC522_ID63/src",
+                    "/Users/devarts/.platformio/lib/NewPing_ID176/src",
+                    "/Users/devarts/.platformio/lib/PID_ID2",
+                    "/Users/devarts/.platformio/lib/RF24Network",
+                    "/Users/devarts/.platformio/lib/RF24_ID433",
+                    "/Users/devarts/.platformio/lib/RF24_ID433/utility",
+                    "/Users/devarts/.platformio/lib/Servo_ID883/src",
+                    "/Users/devarts/.platformio/lib/ShiftRegister74HC595_ID4224/src",
+                    "/Users/devarts/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                    "/Users/devarts/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                    "/Users/devarts/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                    "/Users/devarts/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                    "/Users/devarts/Iot/THERMO-HYGRO/include",
+                    "/Users/devarts/Iot/THERMO-HYGRO/src",
+                    "/Users/devarts/.platformio/packages/framework-arduino-avr/cores/arduino",
+                    "/Users/devarts/.platformio/packages/framework-arduino-avr/variants/standard",
+                    "/Users/devarts/.platformio/packages/tool-unity",
+                    ""
+                ]
+            },
+            "defines": [
+                "PLATFORMIO=40303",
+                "ARDUINO_AVR_UNO",
+                "F_CPU=16000000L",
+                "ARDUINO_ARCH_AVR",
+                "ARDUINO=10808",
+                "__AVR_ATmega328P__",
+                ""
+            ],
+            "intelliSenseMode": "clang-x64",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "compilerPath": "/Users/devarts/.platformio/packages/toolchain-atmelavr/bin/avr-gcc",
+            "compilerArgs": [
+                "-mmcu=atmega328p",
+                ""
+            ]
+        }
+    ],
+    "version": 4
+}

@@ -1,0 +1,588 @@
+/* *****************************
+ * ********* Libraries *********
+ * *****************************/
+#include <Arduino.h>
+#include <Wire.h>
+#include <dht.h>
+#include <OneWire.h> 
+#include <DallasTemperature.h>
+#include <LiquidCrystal_I2C.h>
+#include <Servo.h>
+#include <avr/wdt.h>
+
+/* *****************************
+ * ***** Incubating params *****
+ * *****************************/
+int inc_hum_point = 0.00;
+int inc_hum_delay = 0;
+float inc_temp_point = 0.0;
+float inc_temp_delay = 0.0;
+
+
+/* *****************************
+ * ****** Haching params *******
+ * *****************************/
+int hach_hum_point = 0.00;
+int hach_hum_delay = 0;
+float hach_temp_point = 0.0;
+float hach_temp_delay = 0.0;
+
+/* *****************************
+ * ****** Global params ********
+ * *****************************/
+bool hum_reached = false;
+bool temp_reached = false;
+//unsigned long previous_oxygenation_duration_time = 0;
+//unsigned long previous_oxygenation_duration_time_delay = (unsigned long) 1000 * 60 * 60 * 3;
+//unsigned long previous_oxygenation_cycle_time = 0;
+//unsigned long previous_oxygenation_cycle_time_delay = (unsigned long) 1000 * 10;
+float current_temp = 0.00;
+float current_hum = 0.00;
+int current_mode = 0;
+int current_kind = 0;
+//int windows_pos = 0;
+//int windows_close_pos = 105;
+//int current_angle;
+
+/* *****************************
+ * ********* Triggers **********
+ * *****************************/
+int heating = 5;
+int heating_fan = 10;
+int humidify = 9;
+int cooling = 6;
+//int oxygenation = 6;
+int windows = 4;
+int heating_on = 7;
+int humidify_on = 8;
+
+/* *****************************
+ * ********* Sensors ***********
+ * *****************************/
+int ds18b20 = 13;
+int dht22 = 12;
+int mode = 11;
+int kind = A3;
+
+/* *****************************
+ * ********** Icons ************
+ * *****************************/
+byte temp_icon[8] = {B00100,B01010,B01010,B01110,B01110,B11111,B11111,B01110};
+byte hum_icon[8] = {B00100,B00100,B01010,B01010,B10001,B10001,B10001,B01110};
+
+/* *****************************
+ * ****** Scope functions ******
+ * *****************************/
+void handleTemperature();
+void handleHumidity();
+void handleOxygen();
+void handleKind();
+void setHeating(int state);
+void setHumidify(int state);
+void setOxygenation(int state);
+bool getOxygenation();
+void initTemperature();
+void initHumidity();
+bool inRange(int val, int min, int max);
+void start_wdt();
+void printResult();
+
+/* *****************************
+ * ********** Objects **********
+ * *****************************/
+LiquidCrystal_I2C lcd(0x27,16,2);
+OneWire oneWire(ds18b20);
+DallasTemperature sensors(&oneWire);
+DeviceAddress sensorDeviceAddress;
+dht DHT;
+Servo servo;
+
+/* *****************************
+ * ******* Setup program *******
+ * *****************************/
+void setup() {
+    // Start wdt
+    start_wdt();
+
+    // Set pins mode
+    pinMode(mode, INPUT);
+    pinMode(kind, INPUT);
+    pinMode(heating, OUTPUT);
+    pinMode(humidify, OUTPUT);
+    pinMode(heating_fan, OUTPUT);
+    pinMode(oxygenation, OUTPUT);
+    pinMode(heating_on,OUTPUT);
+    pinMode(humidify_on,OUTPUT);
+
+    // Load incubation and haching params
+    current_kind = map(analogRead(kind), 0, 1023, 0, 100);
+    handleKind();
+    
+    // Initialize the lcd for 16 chars 2 lines
+    lcd.begin(16,2);
+
+    // Initialize the temp sensor
+    sensors.begin();
+    sensors.getAddress(sensorDeviceAddress, 0);
+    sensors.setResolution(sensorDeviceAddress, 12);
+
+     // Initialize windows
+    servo.attach(windows);
+    for (windows_pos = 0; (windows_pos = windows_close_pos); windows_pos += 1) {
+        servo.write(windows_pos);
+        delay(15); 
+    }
+
+    // Turn on backlight
+    lcd.backlight();
+
+    // Loading
+    lcd.setCursor(0,0);
+    lcd.print(F("---INITIALISATION---"));
+    bool underscor = true;
+    for(int i = 0; i< 20; i++){
+        lcd.setCursor(i,1);
+        if(underscor){
+            lcd.print("_");
+            underscor = false;
+        }else{
+            lcd.print("-");
+            underscor = true;
+        }
+        delay(200);
+    }
+    lcd.setCursor(0,2);
+    lcd.print(F("******** BY ********"));
+    lcd.setCursor(0,3);
+    lcd.print(F("      DEVARTS       "));  
+    delay(2000);
+    lcd.clear();
+    lcd.createChar(1, temp_icon);
+    lcd.createChar(2, hum_icon);
+}
+
+/* *****************************
+ * ******* Main program ********
+ * *****************************/
+void loop() {
+    // Reset wdt
+    wdt_reset();
+
+    // Initialise temperature sensor
+    initTemperature();
+
+     // Initialise humidity sensor
+    initHumidity();
+
+    // Get current mode
+    current_mode = digitalRead(mode);
+
+    // Print all params on screen
+    printResult();
+
+    // Handle the temperature
+    handleTemperature();
+
+    // Handle the humidity
+    handleHumidity();
+
+    // Handle the oxygen
+    handleOxygen();
+}
+
+/* *****************************
+ * ***** Set heating state *****
+ * *****************************/
+void setHeating(int state){
+    digitalWrite(heating,state);
+}
+
+/* *****************************
+ * **** Set humidify state *****
+ * *****************************/
+void setHumidify(int state){
+    digitalWrite(humidify,state);
+}
+
+/* *****************************
+ * *** Set oxygenation state ***
+ * *****************************/
+void setOxygenation(int state){
+    digitalWrite(oxygenation,state);
+}
+
+/* *****************************
+ * *** Get oxygenation state ***
+ * *****************************/
+bool getOxygenation(){
+    return digitalRead(oxygenation);
+}
+
+/* *****************************
+ * ***** Init temperature ******
+ * *****************************/
+void initTemperature(){
+    sensors.requestTemperatures();
+    current_temp = sensors.getTempCByIndex(0);
+}
+
+/* *****************************
+ * ******* Init humidity *******
+ * *****************************/
+void initHumidity(){
+    DHT.read22(dht22);
+    current_hum = DHT.humidity;
+}
+
+/* *****************************
+ * ********* Start wdt *********
+ * *****************************/
+void start_wdt(){
+    wdt_disable();
+	wdt_enable(WDTO_4S);
+}
+
+/* *****************************
+ * ******* Print result ********
+ * *****************************/
+void printResult(){
+    // Write current temp on lcd screen 1 line
+    if(current_temp > 0.00){
+        lcd.setCursor(0,0);
+        lcd.write(1);
+        lcd.setCursor(2,0);
+        lcd.print(current_temp);
+        lcd.print((char)223);
+        lcd.print(F("C"));
+    }
+
+    // Write current hum on lcd screen 1 line
+    if(current_hum > 0.00){
+        lcd.setCursor(10,0);
+        lcd.write(2);
+        lcd.setCursor(12,0);
+        lcd.print(current_hum);
+        lcd.print(F("%"));
+        lcd.setCursor(16,0);
+        lcd.print(F(" "));
+    }
+
+    // Write current mode on lcd screen 2 line
+    if(current_mode == 0){
+        lcd.setCursor(0,1);
+        lcd.print(F("M: "));
+        lcd.print(F("INCUBATION"));
+    }else{
+        lcd.setCursor (0,1);
+        lcd.print(F("M: "));
+        lcd.print(F("ECLOSION"));
+        lcd.setCursor(11,1);
+        lcd.print(F(" "));
+        lcd.setCursor(12,1);
+        lcd.print(F(" "));
+    }
+}
+
+/* *****************************
+ * **** Handle temperature *****
+ * *****************************/
+void handleTemperature(){
+    // If in incubation mode
+    if(current_mode == 0){
+        if(current_temp >= inc_temp_point){
+            setHeating(0);
+            temp_reached = true;
+        }
+        if(current_temp < inc_temp_point){
+            if(temp_reached){
+                if(current_temp <= inc_temp_point - inc_temp_delay){
+                    setHeating(1);
+                    temp_reached = false;
+                }
+            }else{
+                setHeating(1);
+            }
+        }  
+    }
+
+    // If in haching mode
+    if(current_mode == 1){
+        if(current_temp >= hach_temp_point){
+            setHeating(0);
+            temp_reached = true;
+        }
+        if(current_temp < hach_temp_point){
+            if(temp_reached){
+                if(current_temp <= hach_temp_point - hach_temp_delay){
+                    setHeating(1);
+                    temp_reached = false;
+                }
+            }else{
+                setHeating(1);
+            }
+        }  
+    } 
+}
+
+/* *****************************
+ * ****** Handle humidity ******
+ * *****************************/
+void handleHumidity(){ 
+    // If in incubation mode
+    if(current_mode == 0){
+        if(current_hum >= inc_hum_point){
+            setHumidify(0);
+            hum_reached = true;
+        }
+        if(current_hum < inc_hum_point){
+            if(hum_reached){
+                if(current_hum <= inc_hum_point - inc_hum_delay){
+                    setHumidify(1);
+                    hum_reached = false;
+                }
+            }else{
+                setHumidify(1);
+            }
+        }  
+    }
+
+    // If in haching mode
+    if(current_mode == 1){
+        if(current_hum >= hach_temp_point){
+            setHeating(0);
+            temp_reached = true;
+        }
+        if(current_hum < hach_temp_point){
+            if(temp_reached){
+                if(current_hum <= hach_temp_point - hach_temp_delay){
+                    setHeating(1);
+                    temp_reached = false;
+                }
+            }else{
+                setHeating(1);
+            }
+        }  
+    }
+}
+
+/* *****************************
+ * ******* Handle oxygen *******
+ * *****************************/
+void handleOxygen(){
+    unsigned long current_time = millis();
+    if (current_time - previous_oxygenation_cycle_time >= previous_oxygenation_cycle_time_delay) {    
+        previous_oxygenation_cycle_time = current_time;
+        previous_oxygenation_duration_time = current_time;
+        current_angle = servo.read();
+        if(current_angle == windows_close_pos){
+            for (windows_pos = windows_close_pos; (windows_pos = 0); windows_pos -= 1) {
+                servo.write(windows_pos);
+                delay(15); 
+            }
+        }
+        setOxygenation(1);
+    }
+    if((current_time - previous_oxygenation_duration_time >= previous_oxygenation_duration_time_delay) && getOxygenation()){
+        setOxygenation(0);
+        current_angle = servo.read();
+        if(current_angle == 0){
+            for (windows_pos = 0; (windows_pos = windows_close_pos); windows_pos += 1) {
+                servo.write(windows_pos);
+                delay(15); 
+            }
+        }
+        previous_oxygenation_duration_time = 0;
+    }
+}
+
+/* *****************************
+ * **** Handle kind params *****
+ * *****************************/
+bool inRange(int val, int min, int max){
+  return ((min < val) && (val < max));
+}
+
+/* *****************************
+ * ***** Handle bird kind ******
+ * *****************************/
+void handleKind(){
+    // POULLE
+    if (inRange(current_kind,0,10)) {
+        inc_hum_point = 50;
+        inc_hum_delay = 10;
+        inc_temp_point = 37.70;
+        inc_temp_delay = 0.20;
+        hach_hum_point = 80;
+        hach_hum_delay = 10;
+        hach_temp_point = 37.60;
+        hach_temp_delay = 0.20;
+    }
+
+    // PINTADE
+    if (inRange(current_kind,10,20)) {
+        inc_hum_point = 55;
+        inc_hum_delay = 10;
+        inc_temp_point = 37.70;
+        inc_temp_delay = 0.20;
+        hach_hum_point = 85;
+        hach_hum_delay = 10;
+        hach_temp_point = 37.60;
+        hach_temp_delay = 0.20;
+    }
+
+    // DINDE
+    if (inRange(current_kind,20,30)) {
+        inc_hum_point = 50;
+        inc_hum_delay = 10;
+        inc_temp_point = 37.70;
+        inc_temp_delay = 0.20;
+        hach_hum_point = 80;
+        hach_hum_delay = 10;
+        hach_temp_point = 37.60;
+        hach_temp_delay = 0.20;
+    }
+
+    // PAONNE
+    if (inRange(current_kind,30,40)) {
+        inc_hum_point = 50;
+        inc_hum_delay = 10;
+        inc_temp_point = 37.70;
+        inc_temp_delay = 0.20;
+        hach_hum_point = 80;
+        hach_hum_delay = 10;
+        hach_temp_point = 37.60;
+        hach_temp_delay = 0.20;
+    }
+
+    // CANE
+    if (inRange(current_kind,40,50)) {
+        inc_hum_point = 55;
+        inc_hum_delay = 10;
+        inc_temp_point = 37.70;
+        inc_temp_delay = 0.20;
+        hach_hum_point = 85;
+        hach_hum_delay = 10;
+        hach_temp_point = 37.60;
+        hach_temp_delay = 0.20;
+    }
+
+    // OIE
+    if (inRange(current_kind,50,60)) {
+        inc_hum_point = 55;
+        inc_hum_delay = 10;
+        inc_temp_point = 37.70;
+        inc_temp_delay = 0.20;
+        hach_hum_point = 95;
+        hach_hum_delay = 10;
+        hach_temp_point = 37.60;
+        hach_temp_delay = 0.20;
+    }
+
+     // CAILLE
+    if (inRange(current_kind,60,70)) {
+        inc_hum_point = 50;
+        inc_hum_delay = 10;
+        inc_temp_point = 37.90;
+        inc_temp_delay = 0.20;
+        hach_hum_point = 80;
+        hach_hum_delay = 10;
+        hach_temp_point = 37.70;
+        hach_temp_delay = 0.20;
+    }
+
+     // PERDRIX
+    if (inRange(current_kind,70,80)) {
+        inc_hum_point = 50;
+        inc_hum_delay = 10;
+        inc_temp_point = 37.80;
+        inc_temp_delay = 0.20;
+        hach_hum_point = 80;
+        hach_hum_delay = 10;
+        hach_temp_point = 37.60;
+        hach_temp_delay = 0.20;
+    }
+
+    // FAISANE
+    if (inRange(current_kind,80,90)) {
+        inc_hum_point = 50;
+        inc_hum_delay = 10;
+        inc_temp_point = 37.80;
+        inc_temp_delay = 0.20;
+        hach_hum_point = 80;
+        hach_hum_delay = 10;
+        hach_temp_point = 37.60;
+        hach_temp_delay = 0.20;
+    }
+
+    // AUTRUCHE
+    if (inRange(current_kind,80,90)) {
+        inc_hum_point = 40;
+        inc_hum_delay = 10;
+        inc_temp_point = 36.50;
+        inc_temp_delay = 0.20;
+        hach_hum_point = 80;
+        hach_hum_delay = 10;
+        hach_temp_point = 36.30;
+        hach_temp_delay = 0.20;
+    }
+}
+
+// 0-10 / 5 POULE
+// (Couvaison 21 jours)
+// 1-18 37.70 (delay 2) 40-50 (delay 10)  Incubation
+// 19-21 37.60 (delay 2) 70-80 (delay 10) Eclosion
+// Retournement de 2-18 jours
+
+// 10-20 / 15 PINTADE
+// Couvaison 27-28 jours)
+// 1-24 37.70 (delay 2) 45-55 (delay 10)  Incubation
+// 25-28 37.60 (delay 2) 75-85 (delay 10) Eclosion
+// Retournement de 2-24 jours
+
+// 20-30 / 25 DINDE
+// Couvaison 28 jours)
+// 1-24 37.70 (delay 2) 40-50 (delay 10)  Incubation
+// 25-28 37.60 (delay 2) 70-80 (delay 10) Eclosion
+// Retournement de 2-24 jours
+
+// 30-40 / 35 PAONNE
+// Couvaison 30 jours)
+// 1-26 37.70 (delay 2) 40-50 (delay 10)  Incubation
+// 27-30 37.60 (delay 2) 70-80 (delay 10) Eclosion
+// Retournement de 2-26 jours
+
+// 40-50 / 45 CANE
+// Couvaison 28 jours)
+// 1-24 37.70 (delay 2) 45-55 (delay 10)  Incubation
+// 25-28 37.60 (delay 2) 75-85 (delay 10) Eclosion
+// Retournement de 2-24 jours
+
+// 50-60 / 55 OIE
+// Couvaison 30 jours)
+// 1-26 37.70 (delay 2) 45-55 (delay 10)  Incubation
+// 27-30 37.60 (delay 2) 85-95 (delay 10) Eclosion
+// Retournement de 2-26 jours
+
+// 60-70 / 65 CAILLE
+// (Couvaison 17-18 jours)
+// 1-14 37.90 (delay 2) 40-50 (delay 10)  Incubation
+// 15-18 37.70 (delay 2) 70-80 (delay 10) Eclosion
+// Retournement de 2-14 jours
+
+// 70-80 / 75 PERDRIX
+// (Couvaison 24 jours)
+// 1-20 37.80 (delay 2) 40-50 (delay 10)  Incubation
+// 21-24 37.60 (delay 2) 70-80 (delay 10) Eclosion
+// Retournement de 2-20 jours
+
+// 80-90 / 85 FAISANE
+// (Couvaison 24 jours)
+// 1-20 37.80 (delay 2) 40-50 (delay 10)  Incubation
+// 21-24 37.60 (delay 2) 70-80 (delay 10) Eclosion
+// Retournement de 2-20 jours
+
+// 90-100 / 95 AUTRUCHE
+// (Couvaison 42 jours)
+// 1-38 36.50 (delay 2) 30-40 (delay 10)  Incubation
+// 39-42 36.30 (delay 2) 70-80 (delay 10) Eclosion
+// Retournement de 2-38 jours
